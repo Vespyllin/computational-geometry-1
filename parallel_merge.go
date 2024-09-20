@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	// "fmt"
 	"sync"
 )
 
@@ -111,9 +111,9 @@ func seg_merge(a []int, b []int, p int) []int  {
 
 
 
-func main() {
-	a := []int{4,5,14,27,29,30,55,70}
-	b := []int{10,16,17,25,28,40,59,80}
-
-	fmt.Println(seg_merge(a,b,3))
-}
+// func main() {
+// 	a := []int{4,5,14,27,29,30,55,70}
+// 	b := []int{10,16,17,25,28,40,59,80}
+//
+// 	fmt.Println(seg_merge(a,b,1))
+// }

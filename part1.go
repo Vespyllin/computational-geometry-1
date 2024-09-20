@@ -35,42 +35,10 @@ func BasicMergeSort(I, S []int, wg *sync.WaitGroup) {
     wgHalves.Wait()
 
     // Merge the sorted halves into the scratch space
-    merge(S[:mid], S[mid:], I)
+    seq_merge(S[:mid], S[mid:], I)
 
     // Copy the sorted result back to the scratch space
     copy(S, I)
-}
-
-// merge combines two sorted slices (left and right) into a single sorted result.
-// This is a sequential merge operation.
-func merge(left, right, result []int) {
-    i, j, k := 0, 0, 0
-
-    // Compare elements from both slices and put the smaller one into the result
-    for i < len(left) && j < len(right) {
-        if left[i] <= right[j] {
-            result[k] = left[i]
-            i++
-        } else {
-            result[k] = right[j]
-            j++
-        }
-        k++
-    }
-
-    // If there are remaining elements in left, append them to result
-    for i < len(left) {
-        result[k] = left[i]
-        i++
-        k++
-    }
-
-    // If there are remaining elements in right, append them to result
-    for j < len(right) {
-        result[k] = right[j]
-        j++
-        k++
-    }
 }
 
 func main() {
