@@ -55,51 +55,52 @@ func sequentialMerge(a []int, b []int, m []int) {
 	}
 }
 
-func segmentMerge(a []int, b []int, processes int) []int {
+func segmentMerge(A []int, B []int, P int) []int {
+	var wg sync.WaitGroup
 
-	var waitGroup sync.WaitGroup
+	P = min(P, len(B)) // Limit # of processes so that each process has at least 1 element to sort
+	R := make([]int, P+1)
+	R[0] = 0
 
-	processes = min(processes, len(b)) // Limit # of processes so that each process has at least 1 element to sort
-	ranks := make([]int, processes+1)
-	ranks[0] = 0
-
-	for i := 1; i <= processes; i++ {
-		waitGroup.Add(1)
+	// Compute ranks
+	wg.Add(P)
+	for i := 1; i <= P; i++ {
 		go func(i int) {
-			defer waitGroup.Done()
+			defer wg.Done()
 
-			idx := min(len(b)-1, (i*len(b))/processes)
-			ranks[i] = rank(b[idx], a)
+			idx := min(len(B)-1, (i*len(B))/P) // Cap the target to not overflow B
+			R[i] = rank(B[idx], A)
 		}(i)
 	}
 
-	waitGroup.Wait()
+	wg.Wait()
 
-	res := make([]int, len(a)+len(b))
-	for i := 1; i <= processes; i++ {
-		waitGroup.Add(1)
+	M := make([]int, len(A)+len(B))
+	// Merge each segment
+	wg.Add(P)
+	for i := 1; i <= P; i++ {
 		go func(i int) {
-			defer waitGroup.Done()
+			defer wg.Done()
 
-			bLow := ((i - 1) * (len(b) + 1)) / processes
-			bHigh := min(((i)*(len(b)+1))/processes, len(b))
+			bLow := ((i - 1) * (len(B) + 1)) / P
+			bHigh := min(((i)*(len(B)+1))/P, len(B)) // Cap the slice to not overflow B
 
-			bSub := b[bLow:bHigh]
-			aSub := a[ranks[i-1]:ranks[i]]
+			bSub := B[bLow:bHigh]
+			aSub := A[R[i-1]:R[i]]
 
 			// fmt.Printf("A[%v:%v]: %v\n", ranks[i-1], ranks[i], aSub)
 			// fmt.Printf("B[%v:%v]: %v\n", bLow, bHigh, bSub)
 
-			sequentialMerge(aSub, bSub, res[ranks[i-1]+bLow:ranks[i]+bHigh])
+			sequentialMerge(aSub, bSub, M[R[i-1]+bLow:R[i]+bHigh])
 		}(i)
 	}
 
-	waitGroup.Wait()
+	wg.Wait()
 
-	// Append final elements in A in case of an uneven distribution
-	for i := ranks[len(ranks)-1]; i < len(a); i++ {
-		res[len(b)+i] = a[i]
+	// Append final elements in A in case of a distribution where the final element in B is smaller than than in A
+	for i := R[len(R)-1]; i < len(A); i++ {
+		M[len(B)+i] = A[i]
 	}
 
-	return res
+	return M
 }
