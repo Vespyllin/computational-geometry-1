@@ -4,8 +4,27 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"sort"
+	"strings"
 	"time"
 )
+
+func formatWithCommas(value float64) string {
+	parts := strings.Split(fmt.Sprintf("%.2f", value), ".") // Split the float into integer and decimal parts
+	integerPart := parts[0]
+	decimalPart := parts[1]
+
+	// Add commas to the integer part
+	var result strings.Builder
+	for i, v := range integerPart {
+		if i > 0 && (len(integerPart)-i)%3 == 0 {
+			result.WriteRune(',')
+		}
+		result.WriteRune(v)
+	}
+
+	// Combine integer part with decimal part
+	return result.String() + "." + decimalPart
+}
 
 func genRandUniqueArr(size int) []int {
 	numSet := make(map[int]struct{})
@@ -21,146 +40,43 @@ func genRandUniqueArr(size int) []int {
 	return result
 }
 
-func tabulateResults(sizes []int, A [][]int, B [][]int) {
-	for i := 0; i < len(sizes); i++ {
-		sumA := 0
-		sumB := 0
-		for j := 0; j < len(A[i]); j++ {
-			sumA += A[i][j]
-			sumB += B[i][j]
-		}
-		// Calculate average
-		averageA := float64(sumA) / float64(len(A[i]))
-		averageB := float64(sumB) / float64(len(B[i]))
+func tabulateResults(sizes []int, arrays [][][]int) {
+	// SIZE
+	for j := 0; j < len(sizes); j++ {
+		fmt.Printf("SIZE: %d\t", sizes[j])
+		// ALGO
+		for i := 0; i < len(arrays); i++ {
+			sum := 0
 
-		// Print the row and its average
-		comparison := '='
-		comparisonColor := "\033[0m"
-
-		if averageA > averageB {
-			comparison = '>'
-			comparisonColor = "\033[32m"
-		} else {
-			comparison = '<'
-			comparisonColor = "\033[31m"
-		}
-
-		fmt.Printf("Size: %s%d\t\t%10.2f\t%2c\t%-10.2f\n\033[0m", comparisonColor, sizes[i], averageA, comparison, averageB)
-	}
-}
-
-func mergeBenchmark(sizes []int, iter int, threads int) {
-	var startTime time.Time
-	var elapsedTime time.Duration
-
-	// MERGE
-	sequentialDataNs := make([][]int, len(sizes))
-	for i := range sizes {
-		sequentialDataNs[i] = make([]int, iter)
-	}
-	segmentDataNs := make([][]int, len(sizes))
-	for i := range sizes {
-		segmentDataNs[i] = make([]int, iter)
-	}
-
-	for s, size := range sizes {
-		for i := 0; i < iter; i++ {
-			var inputA, inputB []int
-
-			randomArr := genRandUniqueArr(size)
-			sortedA := randomArr[len(randomArr)/2:]
-			sortedB := randomArr[:len(randomArr)/2]
-			sort.Ints(sortedA)
-			sort.Ints(sortedB)
-
-			// SEGMENT MERGE
-			inputA = make([]int, len(sortedA))
-			inputB = make([]int, len(sortedB))
-			copy(inputA, sortedA)
-			copy(inputB, sortedB)
-
-			rB := rank(inputB[len(inputB)-1], inputA)
-			rA := rank(inputA[len(inputA)-1], inputB)
-			if rB < len(inputA)/4 || rA < len(inputB)/4 {
-				fmt.Printf("Bad distribution at iteration: %d of size %d", iter, size)
-				i--
-				continue
+			// ITER
+			for k := 0; k < len(arrays[i][j]); k++ {
+				sum += arrays[i][j][k]
 			}
 
-			startTime = time.Now()
-			_ = segmentMerge(inputA, inputB, threads)
-
-			elapsedTime = time.Since(startTime)
-			segTimeNs := elapsedTime.Nanoseconds()
-			segmentDataNs[s][i] = int(segTimeNs)
-
-			// SEQUENTIAL MERGE
-			scratch := make([]int, len(randomArr))
-			inputA = make([]int, len(sortedA))
-			inputB = make([]int, len(sortedB))
-			copy(inputA, sortedA)
-			copy(inputB, sortedB)
-
-			startTime = time.Now()
-			sequentialMerge(inputA, inputB, scratch)
-			elapsedTime = time.Since(startTime)
-
-			seqTimeNs := elapsedTime.Nanoseconds()
-			sequentialDataNs[s][i] = int(seqTimeNs)
+			average := float64(sum) / float64(len(arrays[i][j]))
+			fmt.Printf("%16s\t", formatWithCommas(average))
 		}
+		fmt.Println()
 	}
-
-	fmt.Printf("Sequential and Segment merge algorithm average runtimes in ns.\n")
-	fmt.Printf("%d Iterations\t\tSequential\t\tSegment\n", iter)
-	tabulateResults(sizes, sequentialDataNs, segmentDataNs)
 }
 
-func sortBenchmark(sizes []int, iter int, threads int) {
-	var startTime time.Time
-	var elapsedTime time.Duration
-
+func basicSortBenchmark(sizes []int, iter int) [][]int {
 	basicSortDataNs := make([][]int, len(sizes))
 	for i := range sizes {
 		basicSortDataNs[i] = make([]int, iter)
 	}
-	segmentSortDataNs := make([][]int, len(sizes))
-	for i := range sizes {
-		segmentSortDataNs[i] = make([]int, iter)
-	}
 
-	// var inputA, inputB []int
 	for s, size := range sizes {
-		input := make([]int, size)
-		var scratch []int
 		for i := 0; i < iter; i++ {
-			randomArr := genRandUniqueArr(size)
+			input := genRandUniqueArr(size)
+			scratch := make([]int, len(input))
 
-			// SEGMENT MERGE
-			copy(input, randomArr)
-			scratch = make([]int, len(randomArr))
+			startTime := time.Now()
+			_, bmRres := basicMergeSort(input, scratch)
+			elapsedTime := time.Since(startTime)
 
-			startTime = time.Now()
-			segmentMergeSort(input, scratch, threads)
-			elapsedTime = time.Since(startTime)
-
-			if !sort.IntsAreSorted(input) {
-				fmt.Printf("ERROR IN SEGMENT MERGE SORT\n\tSIZE: %d - ITERATION: %d - THREADS: %d\n", size, i, threads)
-				break
-			}
-			segTimeNs := elapsedTime.Nanoseconds()
-			segmentSortDataNs[s][i] = int(segTimeNs)
-
-			// SEQUENTIAL MERGE
-			copy(input, randomArr)
-			scratch = make([]int, len(randomArr))
-
-			startTime = time.Now()
-			basicMergeSort(input, scratch)
-			elapsedTime = time.Since(startTime)
-
-			if !sort.IntsAreSorted(input) {
-				fmt.Printf("ERROR IN BASIC MERGE SORT\n\tSIZE: %d - ITERATION: %d - THREADS: %d\n", size, i, threads)
-				break
+			if !sort.IntsAreSorted(bmRres) {
+				panic(fmt.Sprintf("ERROR IN BASIC MERGE SORT\n\tSIZE: %d - ITERATION: %d\n", size, i))
 			}
 
 			basicTimeNs := elapsedTime.Nanoseconds()
@@ -168,12 +84,118 @@ func sortBenchmark(sizes []int, iter int, threads int) {
 		}
 	}
 
-	fmt.Printf("Basic and Segment merge sort algorithm average runtimes in ns.\n")
-	fmt.Printf("%d Iterations\t\tBasic\t\t\tSegment\n", iter)
-	tabulateResults(sizes, basicSortDataNs, segmentSortDataNs)
+	return basicSortDataNs
+}
+
+func parallelSortBenchmark(sizes []int, iter int, threads int) [][]int {
+
+	parallelSortDataNs := make([][]int, len(sizes))
+	for i := range sizes {
+		parallelSortDataNs[i] = make([]int, iter)
+	}
+
+	for s, size := range sizes {
+		for i := 0; i < iter; i++ {
+			input := genRandUniqueArr(size)
+			scratch := make([]int, len(input))
+
+			startTime := time.Now()
+			_, pmRres := segmentMergeSort(input, scratch, threads)
+			elapsedTime := time.Since(startTime)
+
+			if !sort.IntsAreSorted(pmRres) {
+				panic(fmt.Sprintf("ERROR IN BASIC MERGE SORT\n\tSIZE: %d - ITERATION: %d\n", size, i))
+			}
+
+			parallelTimeNs := elapsedTime.Nanoseconds()
+			parallelSortDataNs[s][i] = int(parallelTimeNs)
+		}
+	}
+
+	return parallelSortDataNs
+}
+
+func sequentialMergeBenchmark(sizes []int, iter int) [][]int {
+	mergeDataNs := make([][]int, len(sizes))
+	for i := range sizes {
+		mergeDataNs[i] = make([]int, iter)
+	}
+
+	for s, size := range sizes {
+		for i := 0; i < iter; i++ {
+			randomArr := genRandUniqueArr(size)
+			sortedA := randomArr[len(randomArr)/2:]
+			sortedB := randomArr[:len(randomArr)/2]
+			sort.Ints(sortedA)
+			sort.Ints(sortedB)
+
+			dest := make([]int, len(randomArr))
+
+			startTime := time.Now()
+			sequentialMerge(sortedA, sortedB, dest)
+			elapsedTime := time.Since(startTime)
+
+			seqTimeNs := elapsedTime.Nanoseconds()
+			mergeDataNs[s][i] = int(seqTimeNs)
+		}
+	}
+
+	return mergeDataNs
+}
+
+func segmentMergeBenchmark(sizes []int, iter int, threads int) [][]int {
+	mergeDataNs := make([][]int, len(sizes))
+	for i := range sizes {
+		mergeDataNs[i] = make([]int, iter)
+	}
+
+	for s, size := range sizes {
+		for i := 0; i < iter; i++ {
+			randomArr := genRandUniqueArr(size)
+			inputA := randomArr[len(randomArr)/2:]
+			inputB := randomArr[:len(randomArr)/2]
+			sort.Ints(inputA)
+			sort.Ints(inputB)
+
+			rB := rank(inputB[(len(inputB)-1)*3/4], inputA)
+			rA := rank(inputA[(len(inputA)-1)*3/4], inputB)
+			if rB < len(inputA)/2 || rA < len(inputB)/2 {
+				fmt.Printf("Bad distribution at iteration: %d of size %d", iter, size)
+				i--
+				continue
+			}
+
+			dest := make([]int, len(randomArr))
+
+			startTime := time.Now()
+			segmentMerge(inputA, inputB, dest, threads)
+			elapsedTime := time.Since(startTime)
+
+			seqTimeNs := elapsedTime.Nanoseconds()
+			mergeDataNs[s][i] = int(seqTimeNs)
+		}
+	}
+
+	return mergeDataNs
+}
+
+func sortBenchmark(sizes []int, iter int) {
+	fmt.Printf("Basic merge sort vs fully parallel merge sort at 1, 3 and 6 threads. (Runtimes in ns)\n")
+	fmt.Printf("%d Iterations\t\t   Basic\t\t   p = 1\t\t   p = 3\t\t   p = 6\n", iter)
+
+	tabulateResults(sizes, [][][]int{basicSortBenchmark(sizes, iter), parallelSortBenchmark(sizes, iter, 1), parallelSortBenchmark(sizes, iter, 3), parallelSortBenchmark(sizes, iter, 6)})
+}
+
+func mergeBenchmark(sizes []int, iter int) {
+	fmt.Printf("Sequential merge vs segment merge at p = 1, 3 and 6. (Runtimes in ns)\n")
+	fmt.Printf("%d Iterations\t      Sequential\t\t   p = 1\t\t   p = 3\t\t   p = 6\n", iter)
+
+	tabulateResults(sizes, [][][]int{sequentialMergeBenchmark(sizes, iter), segmentMergeBenchmark(sizes, iter, 1), segmentMergeBenchmark(sizes, iter, 3), segmentMergeBenchmark(sizes, iter, 6)})
 }
 
 func main() {
-	// mergeBenchmark([]int{1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000}, 1000, 6)
-	sortBenchmark([]int{1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000}, 100, 6)
+	mergeBenchmark([]int{1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000}, 100)
+	fmt.Println()
+	sortBenchmark([]int{1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000}, 100)
+
 }

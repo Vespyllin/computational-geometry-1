@@ -1,72 +1,73 @@
 package main
 
-import "sync"
+import (
+	"sync"
+)
 
-func segmentMergeSort(I, S []int, p int) {
-	// Base case: if the slice has 0 or 1 element, it's already sorted
+func segmentMergeSort(I, S []int, p int) ([]int, []int) {
 	n := len(I)
 	if n <= 1 {
 		if n == 1 {
-			S[0] = I[0]
+			copy(S, I)
 		}
-		return
+		return S, I
 	}
 
 	mid := n / 2
 
+	Il, Ir := I[:mid], I[mid:]
+	Sl, Sr := S[:mid], S[mid:]
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	// Sort left half
 	go func() {
 		defer wg.Done()
-		segmentMergeSort(I[:mid], S[:mid], p)
+		_, Sl = segmentMergeSort(Il, Sl, p)
 	}()
 
-	// Sort right half
 	go func() {
 		defer wg.Done()
-		segmentMergeSort(I[mid:], S[mid:], p)
+		_, Sr = segmentMergeSort(Ir, Sr, p)
 	}()
 
 	wg.Wait()
 
-	// Store the results in the input and copy them back to the scratch space
-	copy(I, segmentMerge(S[:mid], S[mid:], p))
-	copy(S, I)
+	res := make([]int, len(S))
+	segmentMerge(Sr, Sl, res, p)
+	return S, res
 }
 
-func basicMergeSort(I, S []int) {
-	// Base case: if the slice has 0 or 1 element, it's already sorted
+func basicMergeSort(I, S []int) ([]int, []int) {
 	n := len(I)
 	if n <= 1 {
 		if n == 1 {
-			S[0] = I[0]
+			copy(S, I)
 		}
-		return
+		return S, I
 	}
 
 	mid := n / 2
 
+	Il, Ir := I[:mid], I[mid:]
+	Sl, Sr := S[:mid], S[mid:]
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	// Sort left half
 	go func() {
 		defer wg.Done()
-		basicMergeSort(I[:mid], S[:mid])
+		_, Sl = basicMergeSort(Il, Sl)
 	}()
 
-	// Sort right half
 	go func() {
 		defer wg.Done()
-		basicMergeSort(I[mid:], S[mid:])
+		_, Sr = basicMergeSort(Ir, Sr)
 	}()
 
 	wg.Wait()
 
-	sequentialMerge(S[:mid], S[mid:], I)
-
-	// Copy the sorted result back to the scratch space
-	copy(S, I)
+	res := make([]int, len(S))
+	sequentialMerge(Sr, Sl, res)
+	return S, res
 }

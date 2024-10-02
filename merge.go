@@ -55,15 +55,16 @@ func sequentialMerge(a []int, b []int, m []int) {
 	}
 }
 
-func segmentMerge(A []int, B []int, P int) []int {
+func segmentMerge(A []int, B []int, M []int, P int) {
 	var wg sync.WaitGroup
 
 	P = min(P, len(B)) // Limit # of processes so that each process has at least 1 element to sort
 	R := make([]int, P+1)
 	R[0] = 0
 
-	// Compute ranks
 	wg.Add(P)
+
+	// Compute ranks in parallel
 	for i := 1; i <= P; i++ {
 		go func(i int) {
 			defer wg.Done()
@@ -75,9 +76,9 @@ func segmentMerge(A []int, B []int, P int) []int {
 
 	wg.Wait()
 
-	M := make([]int, len(A)+len(B))
-	// Merge each segment
 	wg.Add(P)
+
+	// Merge each segment in parallel
 	for i := 1; i <= P; i++ {
 		go func(i int) {
 			defer wg.Done()
@@ -87,9 +88,6 @@ func segmentMerge(A []int, B []int, P int) []int {
 
 			bSub := B[bLow:bHigh]
 			aSub := A[R[i-1]:R[i]]
-
-			// fmt.Printf("A[%v:%v]: %v\n", ranks[i-1], ranks[i], aSub)
-			// fmt.Printf("B[%v:%v]: %v\n", bLow, bHigh, bSub)
 
 			sequentialMerge(aSub, bSub, M[R[i-1]+bLow:R[i]+bHigh])
 		}(i)
@@ -101,6 +99,4 @@ func segmentMerge(A []int, B []int, P int) []int {
 	for i := R[len(R)-1]; i < len(A); i++ {
 		M[len(B)+i] = A[i]
 	}
-
-	return M
 }
