@@ -43,7 +43,7 @@ func genRandUniqueArr(size int) []int {
 func tabulateResults(sizes []int, arrays [][][]int) {
 	// SIZE
 	for j := 0; j < len(sizes); j++ {
-		fmt.Printf("SIZE: %d\t", sizes[j])
+		fmt.Printf("%-8d\t\t", sizes[j])
 		// ALGO
 		for i := 0; i < len(arrays); i++ {
 			sum := 0
@@ -179,23 +179,41 @@ func segmentMergeBenchmark(sizes []int, iter int, threads int) [][]int {
 	return mergeDataNs
 }
 
-func sortBenchmark(sizes []int, iter int) {
-	fmt.Printf("Basic merge sort vs fully parallel merge sort at 1, 3 and 6 threads. (Runtimes in ns)\n")
-	fmt.Printf("%d Iterations\t\t   Basic\t\t   p = 1\t\t   p = 3\t\t   p = 6\n", iter)
-
-	tabulateResults(sizes, [][][]int{basicSortBenchmark(sizes, iter), parallelSortBenchmark(sizes, iter, 1), parallelSortBenchmark(sizes, iter, 3), parallelSortBenchmark(sizes, iter, 6)})
-}
-
-func mergeBenchmark(sizes []int, iter int) {
-	fmt.Printf("Sequential merge vs segment merge at p = 1, 3 and 6. (Runtimes in ns)\n")
-	fmt.Printf("%d Iterations\t      Sequential\t\t   p = 1\t\t   p = 3\t\t   p = 6\n", iter)
-
-	tabulateResults(sizes, [][][]int{sequentialMergeBenchmark(sizes, iter), segmentMergeBenchmark(sizes, iter, 1), segmentMergeBenchmark(sizes, iter, 3), segmentMergeBenchmark(sizes, iter, 6)})
-}
-
 func main() {
-	mergeBenchmark([]int{1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000}, 100)
-	fmt.Println()
-	sortBenchmark([]int{1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000}, 100)
+	iter := 100
 
+	mergeSizes := []int{1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000, 2048000, 4096000, 8192000, 16384000, 32768000, 65536000}
+	fmt.Print("Benchmarking sequential merge.")
+	sequential := sequentialMergeBenchmark(mergeSizes, iter)
+	fmt.Print("\rBenchmarking segment merge (p = 1).")
+	segment1 := segmentMergeBenchmark(mergeSizes, iter, 1)
+	fmt.Print("\rBenchmarking segment merge (p = 3).")
+	segment3 := segmentMergeBenchmark(mergeSizes, iter, 3)
+	fmt.Print("\rBenchmarking segment merge (p = 6).")
+	segment6 := segmentMergeBenchmark(mergeSizes, iter, 6)
+	fmt.Print("\rFinished merge benchmark.")
+
+	fmt.Printf("Sequential merge vs segment merge at p = 1, 3 and 6. %d Iterations (Runtimes in ns)\n", iter)
+	fmt.Printf("Size\t\t\t      Sequential\t\t   p = 1\t\t   p = 3\t\t   p = 6\n")
+
+	tabulateResults(mergeSizes, [][][]int{sequential, segment1, segment3, segment6})
+
+	fmt.Println()
+
+	sortSizes := []int{1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000, 2048000, 4096000}
+	fmt.Print("Starting sort benchmark.")
+	fmt.Print("\rBenchmarking basic sort.")
+	basic := basicSortBenchmark(sortSizes, iter)
+	fmt.Print("\rBenchmarking parallel sort (p = 1).")
+	parallel1 := parallelSortBenchmark(sortSizes, iter, 1)
+	fmt.Print("\rBenchmarking parallel sort (p = 3).")
+	parallel3 := parallelSortBenchmark(sortSizes, iter, 3)
+	fmt.Print("\rBenchmarking parallel sort (p = 6).")
+	parallel6 := parallelSortBenchmark(sortSizes, iter, 6)
+	fmt.Print("\rFinished sort benchmark.")
+
+	fmt.Printf("Basic merge sort vs fully parallel merge sort at 1, 3 and 6 threads. %d Iterations (Runtimes in ns)\n", iter)
+	fmt.Printf("Size\t\t\t\t   Basic\t\t   p = 1\t\t   p = 3\t\t   p = 6\n")
+
+	tabulateResults(sortSizes, [][][]int{basic, parallel1, parallel3, parallel6})
 }
